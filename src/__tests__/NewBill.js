@@ -1,13 +1,13 @@
 /**
  * @jest-environment jsdom
  */
-
-import { screen } from "@testing-library/dom"
-import NewBillUI from "../views/NewBillUI.js"
-import NewBill from "../containers/NewBill.js"
-import { ROUTES_PATH} from "../constants/routes.js";
-import {localStorageMock} from "../__mocks__/localStorage.js";
-
+import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import NewBillUI from "../views/NewBillUI.js";
+import NewBill from "../containers/NewBill.js";
+import { ROUTES, ROUTES_PATH } from "../constants/routes.js";
+import { localStorageMock } from "../__mocks__/localStorage.js";
+import mockStore from "../__mocks__/store";
+import router from "../app/Router.js";
 
 describe("Given I am connected as an employee", () => {
     describe("When I am on NewBill Page", () => {
@@ -56,19 +56,30 @@ describe("Given I am connected as an employee", () => {
             fireEvent.change(screen.getByTestId("file"), {target:{value:""}});
 
 
+            const newBillForm = screen.getByTestId("form-new-bill");
+            const onNavigate = pathname => { document.body.innerHTML = ROUTES({ pathname }); };
 
             Object.defineProperty(window, 'localStorage', { value: localStorageMock })
             window.localStorage.setItem('user', JSON.stringify({
                 type: 'Employee'
             }))
-            const root = document.createElement("div")
-            root.setAttribute("id", "root")
-            document.body.append(root)
-            router()
-            window.onNavigate(ROUTES_PATH.NewBill)
+            
+            const newBill = new NewBill({ document, onNavigate, store: mockStore, localStorage: window.localStorage });
 
-            //to-do write expect expression
-            expect();
-            })
+            const handleChangeFile = jest.fn(newBill.handleChangeFile);
+            newBillForm.addEventListener("change", handleChangeFile);
+            const fileField = screen.getByTestId("file");
+            fireEvent.change(fileField, { target: { files: [ new File(["facture"], "facture.png", { type: "image/png" }) ] } });
+
+            expect(fileField.files[0].name).toBe("facture.png");
+            expect(fileField.files[0].type).toBe("image/png");
+            
+            expect(handleChangeFile).toHaveBeenCalled();
+
+            const handleSubmit = jest.fn(newBill.handleSubmit);
+            newBillForm.addEventListener("submit", handleSubmit);
+            fireEvent.submit(newBillForm);
+            expect(handleSubmit).toHaveBeenCalled();
+        })
     })
 })
