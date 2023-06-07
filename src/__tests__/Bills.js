@@ -11,6 +11,8 @@ import { localStorageMock } from "../__mocks__/localStorage.js";
 import mockStore from "../__mocks__/store";
 import router from "../app/Router.js";
 
+jest.mock("../app/store", () => mockStore)
+
 describe("Given I am connected as an employee", () => {
   describe("When I am on Bills Page", () => {
     test("Then bill icon in vertical layout should be highlighted", async () => {
@@ -40,8 +42,11 @@ describe("Given I am connected as an employee", () => {
     })
   })
   describe("When i click on the eye icon of a bill", () => {
-    test("It should open a modal", ()=>{
+    test("It should open a modal", async()=>{
+      $.fn.modal = jest.fn()
+
       const onNavigate = (pathname) => {document.body.innerHTML = ROUTES({ pathname })}
+      
       Object.defineProperty(window, 'localStorage', { value: localStorageMock })
       window.localStorage.setItem('user', JSON.stringify({ type: 'Employee' }))
       document.body.innerHTML = BillsUI({ data: bills})
@@ -50,15 +55,16 @@ describe("Given I am connected as an employee", () => {
         document, onNavigate, store, localStorage: window.localStorage
       })
 
-      const handleClickIconEye = jest.fn(billsContainer.handleClickIconEye)
-      const eye = screen.getByTestId('icon-eye')
-      const modale = screen.getByTestId('modaleFile')
+      const handleClickIconEye =  jest.fn((e) => { billsContainer.handleClickIconEye(e) })
+      const eye = await screen.getAllByTestId('icon-eye')
       
-      eye.addEventListener('click', handleClickIconEye)
-      userEvent.click(eye)
-      expect(handleClickIconEye).toHaveBeenCalled()
+      eye.forEach(icon => {
+        icon.addEventListener("click", handleClickIconEye(icon));
+        userEvent.click(icon);
+        expect(handleClickIconEye).toHaveBeenCalled();
+      });
 
-      expect(modale).toBeTruthy()
+      expect(screen.getAllByText('Justificatif')).toBeTruthy()
     })
   })
   describe("When i click on the new bill button", () => {
@@ -96,6 +102,7 @@ describe("Given I am a user connected as Employee", () => {
       await waitFor(() => screen.getByText("Mes notes de frais"));
       expect(screen.getByTestId("tbody")).toBeTruthy()
     })
+  })
   describe("When an error occurs on API", () => {
     beforeEach(() => {
       jest.spyOn(mockStore, "bills")
@@ -115,7 +122,7 @@ describe("Given I am a user connected as Employee", () => {
     })
     test("fetches bills from an API and fails with 404 message error", async () => {
 
-      mockStore.bills.mockImplementationOnce( async () => {
+      mockStore.bills.mockImplementationOnce( () => {
         return {
           list : () =>  {
             return Promise.reject(new Error("Erreur 404"))
@@ -142,7 +149,4 @@ describe("Given I am a user connected as Employee", () => {
       expect(message).toBeTruthy()
     })
   })
-
-  })
 })
-
